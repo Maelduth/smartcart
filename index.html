@@ -48,6 +48,8 @@ main{display:grid;grid-template-columns:1fr 360px;gap:18px;padding:18px}
 #cross:before,#cross:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}
 #cross:before{left:10px;top:0;width:2px;height:22px}#cross:after{top:10px;left:0;height:2px;width:22px}
 #scene3d.locked #cross{display:block}
+#inHand{display:none;position:absolute;left:14px;top:14px;background:rgba(0,0,0,.6);color:#fff;padding:8px 14px;border-radius:10px;font-weight:700;font-size:15px;pointer-events:none;z-index:2}
+#scene3d.fp #inHand.has{display:block}
 #fpPause{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;background:rgba(0,0,0,.45);color:#fff;font-weight:700;font-size:20px;z-index:3;pointer-events:none}
 #scene3d.paused #fpPause{display:flex}
 /* plein écran : la 3D occupe tout l'écran, boutons par-dessus */
@@ -135,6 +137,7 @@ body.sup .sup-only{display:block}
     <div id="scene3d" tabindex="0" style="height:72vh;min-height:480px;border-radius:12px;overflow:hidden;touch-action:none;position:relative;outline:none">
       <div id="fpHelp">⬆⬇⬅➡ / ZQSD : se déplacer · Maj : courir · souris : regarder · clic : agir (viseur) · Échap : quitter</div>
       <div id="cross"></div>
+      <div id="inHand"></div>
       <div id="fpPause">⏸ Clique dans la vue pour reprendre le contrôle à la souris<br><small>Échap : quitter la 1re personne</small></div>
     </div>
   </div>
@@ -905,6 +908,20 @@ $("csvCopy").onclick=async()=>{
       const a=new THREE.Mesh(B(0.07,0.07,0.32),sl); a.position.z=0.06; g.add(a);
       const h=new THREE.Mesh(B(0.075,0.05,0.09),gl); h.position.z=-0.14; g.add(h);   // gants de protection jaunes
       const t=new THREE.Mesh(B(0.025,0.025,0.05),gl); t.position.set(-sd*0.045,0.005,-0.14); g.add(t); arms.userData[sd]=g; }); })();
+  /* ---- Outil en main : le dernier outil retiré apparaît dans la main droite ---- */
+  const holder=new THREE.Group(); arms.userData[1].add(holder);
+  holder.position.set(0,0.035,-0.16); holder.rotation.set(0.75,0,-0.3);
+  let heldKey=null; const hud=document.getElementById("inHand");
+  function updHeld(){
+    const st=lastState; if(!st) return; let best=null, n=0;
+    st.drawers.forEach((d,di)=>d.tools.forEach((t,tj)=>{ if(!t.present){ n++; if(!best||t.since>best.t.since) best={t,d}; } }));
+    const key=best?best.d.id+"|"+best.t.id+"|"+best.t.since:null;
+    if(key!==heldKey){ heldKey=key; holder.clear();
+      if(best){ const m=tool3D(best.t.name); m.position.z=-0.09; m.traverse(o=>{o.castShadow=false;}); holder.add(m); holder.scale.setScalar(0.05); } }
+    hud.classList.toggle("has",!!best);
+    if(best) hud.textContent=`✋ En main : ${best.t.name}`+(n>1?` (+${n-1} autre${n>2?"s":""} sorti${n>2?"s":""})`:"");
+    holder.scale.lerp(new THREE.Vector3(1,1,1),0.15);
+  }
   const fp={on:false,yaw:0,pitch:-0.25,pos:new THREE.Vector3(1.65,0,-0.35),keys:{},bob:0,started:false};
   fp.yaw=Math.PI/2;   // regarde la servante au départ
   const EYE=1.62, RAD=0.25;
@@ -924,6 +941,7 @@ $("csvCopy").onclick=async()=>{
       fp.pos.x+=(-sy*f+cy*st)/n*run*dt; fp.pos.z+=(-cy*f-sy*st)/n*run*dt; collide(fp.pos); fp.bob+=dt*run*7; }
     cam.position.set(fp.pos.x, EYE+Math.sin(fp.bob)*0.025, fp.pos.z);
     cam.rotation.set(fp.pitch,fp.yaw,0,"YXZ");
+    updHeld();
     arms.position.y=Math.sin(fp.bob*0.5)*0.008; arms.position.x=Math.cos(fp.bob*0.5)*0.006;
   }
   const canvas=ren.domElement, locked=()=>document.pointerLockElement===canvas;
