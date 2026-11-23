@@ -55,6 +55,8 @@ main{display:grid;grid-template-columns:1fr 360px;gap:18px;padding:18px}
 #driveHud b{font-size:30px}
 #driveHud .drift{background:#ff3d00;color:#fff;font-weight:900;padding:2px 8px;border-radius:6px;margin-left:6px;font-size:16px}
 #scene3d.driving #driveHud{display:block}
+#miniMap{display:none;position:absolute;right:12px;bottom:12px;width:180px;height:180px;background:rgba(0,0,0,.5);border-radius:14px;pointer-events:none;z-index:2}
+#scene3d.outside #miniMap{display:block}
 #ctxHint{display:none;position:absolute;left:50%;bottom:56px;transform:translateX(-50%);background:rgba(245,196,0,.92);color:#111;font-weight:800;padding:8px 16px;border-radius:10px;font-size:15px;pointer-events:none;z-index:2;white-space:nowrap}
 #fpPause{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;background:rgba(0,0,0,.45);color:#fff;font-weight:700;font-size:20px;z-index:3;pointer-events:none}
 #scene3d.paused #fpPause{display:flex}
@@ -145,6 +147,7 @@ body.sup .sup-only{display:block}
       <div id="cross"></div>
       <div id="inHand"></div>
       <div id="driveHud"></div>
+      <canvas id="miniMap" width="200" height="200"></canvas>
       <div id="ctxHint"></div>
       <div id="fpPause">⏸ Clique dans la vue pour reprendre le contrôle à la souris<br><small>Échap : quitter la 1re personne</small></div>
     </div>
@@ -972,7 +975,7 @@ $("csvCopy").onclick=async()=>{
       p.x=Math.max(BOUNDS[0],Math.min(BOUNDS[2],p.x)); p.z=Math.max(BOUNDS[1],p.z);
       if(p.z>4.05){ if(open&&prev.x>GAP[0]-0.05&&prev.x<GAP[1]+0.05){ p.x=Math.max(GAP[0],Math.min(GAP[1],p.x)); } else p.z=4.05; }
     }else{                                    // ---- dehors
-      p.x=Math.max(-95,Math.min(95,p.x)); p.z=Math.max(-40,Math.min(135,p.z));
+      p.x=Math.max(-160,Math.min(160,p.x)); p.z=Math.max(-40,Math.min(200,p.z));
       if(p.x>BLD[0]&&p.x<BLD[2]&&p.z>BLD[1]&&p.z<BLD[3]){
         if(open&&p.x>GAP[0]&&p.x<GAP[1]&&p.z>3.9) { p.x=Math.max(GAP[0],Math.min(GAP[1],p.x)); }
         else { const dl=p.x-BLD[0],dr=BLD[2]-p.x,dn=p.z-BLD[1],df=BLD[3]-p.z,m=Math.min(dl,dr,dn,df);
@@ -1045,9 +1048,9 @@ $("csvCopy").onclick=async()=>{
   let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
   // herbe
   const grassT=tex(256,256,(x,w,h)=>{x.fillStyle="#3d6b2a";x.fillRect(0,0,w,h);for(let i=0;i<5000;i++){const g=70+rnd()*60|0;x.fillStyle=`rgba(${g*0.55|0},${g},${g*0.35|0},0.35)`;x.fillRect(rnd()*w,rnd()*h,2,3);}},true);
-  grassT.repeat.set(90,90);
-  const ground=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshStandardMaterial({map:grassT,roughness:1}));
-  ground.rotation.x=-Math.PI/2; ground.position.set(0,-0.02,50); ground.receiveShadow=true; scene.add(ground);
+  grassT.repeat.set(110,110);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({map:grassT,roughness:1}));
+  ground.rotation.x=-Math.PI/2; ground.position.set(0,-0.02,80); ground.receiveShadow=true; scene.add(ground);
   // parking devant l'atelier
   const asphT=tex(256,256,(x,w,h)=>{x.fillStyle="#3a3d41";x.fillRect(0,0,w,h);for(let i=0;i<6000;i++){const g=40+rnd()*60|0;x.fillStyle=`rgba(${g},${g},${g},0.5)`;x.fillRect(rnd()*w,rnd()*h,2,2);}},true);
   const parkT=asphT.clone(); parkT.needsUpdate=true; parkT.repeat.set(8,3);
@@ -1058,9 +1061,11 @@ $("csvCopy").onclick=async()=>{
   const lane=new THREE.Mesh(new THREE.PlaneGeometry(7,8),new THREE.MeshStandardMaterial({map:parkT,roughness:0.9})); lane.rotation.x=-Math.PI/2; lane.position.set(8,0.003,16); scene.add(lane);
 
   // ---- Circuit
-  const CTRL=[[0,22],[25,22],[40,30],[42,48],[30,63],[38,80],[25,96],[0,98],[-20,88],[-18,70],[-35,58],[-38,38],[-25,24]];
+  // grand circuit : longue ligne droite, épingle, chicane, enchaînement en S, grande courbe rapide
+  const CTRL=[[0,22],[30,22],[58,22],[76,30],[82,48],[72,62],[56,64],[47,75],[56,87],[76,93],[96,105],[101,126],[89,146],[66,152],[50,141],
+    [43,123],[29,112],[14,123],[1,140],[-20,151],[-46,149],[-63,133],[-59,113],[-41,104],[-30,92],[-42,79],[-68,77],[-86,62],[-83,40],[-63,29],[-38,23],[-18,22]];
   const curve=new THREE.CatmullRomCurve3(CTRL.map(([x,z])=>new THREE.Vector3(x,0,z)),true,"centripetal");
-  const NS=700, TW=10, TP=curve.getSpacedPoints(NS).slice(0,NS), Tn=[], Nn=[], Dist=[0];
+  const NS=1600, TW=10, TP=curve.getSpacedPoints(NS).slice(0,NS), Tn=[], Nn=[], Dist=[0];
   for(let i=0;i<NS;i++){ const t=TP[(i+1)%NS].clone().sub(TP[(i-1+NS)%NS]).normalize(); Tn.push(t); Nn.push(new THREE.Vector3(-t.z,0,t.x)); if(i) Dist.push(Dist[i-1]+TP[i].distanceTo(TP[i-1])); }
   const LEN=Dist[NS-1]+TP[0].distanceTo(TP[NS-1]);
   function strip(o1,o2,y,mat,vScale){
@@ -1093,12 +1098,14 @@ $("csvCopy").onclick=async()=>{
   [-9,9].forEach(x=>{const c=new THREE.Mesh(new THREE.BoxGeometry(0.3,5.2,0.3),SM(0x666d75,0.6,0.4)); c.position.set(x,2.6,5.6); stand.add(c);});
   // piles de pneus dans les virages
   function tires(x,z){ for(let k=0;k<3;k++){const t=new THREE.Mesh(new THREE.TorusGeometry(0.42,0.18,8,16),SM(0x161616,0,0.9)); t.rotation.x=Math.PI/2; t.position.set(x,0.18+k*0.32,z); t.castShadow=true; scene.add(t);} }
-  [60,175,260,345,430,520,610].forEach(i=>{ const p=TP[i], n=Nn[i]; for(let k=-2;k<=2;k++){ const q=p.clone().addScaledVector(n,TW/2+3.2).addScaledVector(Tn[i],k*0.95); tires(q.x,q.z);} });
+  // murs de pneus à l'extérieur des virages serrés
+  for(let i=20;i<NS;i+=40){ const a=Tn[(i-15+NS)%NS], b=Tn[(i+15)%NS]; if(a.dot(b)>0.93) continue;
+    const out=b.clone().sub(a).normalize().negate(); for(let k=-2;k<=2;k++){ const q=TP[i].clone().addScaledVector(out,TW/2+3.4).addScaledVector(Tn[i],k*0.95); tires(q.x,q.z);} }
   // arbres
   const nearTrack=(x,z,m)=>{ for(let i=0;i<NS;i+=4){ const dx=TP[i].x-x, dz=TP[i].z-z; if(dx*dx+dz*dz<m*m) return true; } return false; };
   const trunkM=SM(0x6b4a2b,0,0.9), leafM=[SM(0x2f6b2a,0,0.85),SM(0x3d7f33,0,0.85),SM(0x285c26,0,0.85)];
   const TREES=[];
-  for(let n=0;n<120;n++){ const x=-90+rnd()*180, z=-30+rnd()*160;
+  for(let n=0;n<260;n++){ const x=-135+rnd()*270, z=-30+rnd()*215;
     if(nearTrack(x,z,9)||(x>-14&&x<26&&z>-8&&z<20)||(x>-6&&x<18&&z>26&&z<44)) continue;
     const g=new THREE.Group(); g.position.set(x,0,z); const sc=0.8+rnd()*0.8; g.scale.setScalar(sc); scene.add(g);
     const tr=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.25,1.6,8),trunkM); tr.position.y=0.8; g.add(tr);
@@ -1207,7 +1214,9 @@ $("csvCopy").onclick=async()=>{
     if(!thr&&!brk&&Math.abs(vF)<0.3&&Math.abs(vL)<0.3){ vF=0; vL=0; }
     vF=Math.max(-8,Math.min(vmax,vF));
     // adhérence latérale : faible au frein à main => la voiture glisse (drift)
-    const grip=hb?0.9:(paved?(Math.abs(vL)>4?3.2:8):3);
+    // sans Espace la voiture est « sur des rails » ; après avoir relâché Espace l'adhérence revient en ~0,4 s
+    drive.rec=hb?0:Math.min(1,(drive.rec==null?1:drive.rec)+dt*2.5);
+    const grip=hb?0.9:(paved?2+26*drive.rec:3+12*drive.rec);
     vL*=Math.exp(-grip*dt);
     // direction : plus de rotation au frein à main, contre-braquage possible
     const sMax=0.6/(1+Math.abs(vF)*0.03); drive.steer+=(str*sMax-drive.steer)*Math.min(1,dt*7);
@@ -1220,7 +1229,7 @@ $("csvCopy").onclick=async()=>{
     drive.v=vF;
     const prev=drive.pos.clone(); drive.pos.addScaledVector(drive.vel,dt);
     // collisions : atelier, tribune, arbres, limites
-    const R=1.6; drive.pos.x=Math.max(-93,Math.min(93,drive.pos.x)); drive.pos.z=Math.max(-38,Math.min(133,drive.pos.z));
+    const R=1.6; drive.pos.x=Math.max(-160,Math.min(160,drive.pos.x)); drive.pos.z=Math.max(-38,Math.min(200,drive.pos.z));
     const hitBox=(x1,z1,x2,z2)=>drive.pos.x>x1-R&&drive.pos.x<x2+R&&drive.pos.z>z1-R&&drive.pos.z<z2+R;
     let hit=hitBox(...BLD)||hitBox(-3,33,15,40.5);
     if(!hit) for(const [x,z,r] of TREES){ const dx=drive.pos.x-x,dz=drive.pos.z-z; if(dx*dx+dz*dz<(r+1.5)**2){ hit=true; break; } }
@@ -1229,7 +1238,7 @@ $("csvCopy").onclick=async()=>{
     car.userData.wheels.forEach(w=>{ w.spin.rotation.z-=(hb&&!w.front?0:drive.v)*dt/0.37; if(w.front) w.wg.rotation.y=drive.steer; });
     car.rotation.z=-drive.steer*Math.min(1,Math.abs(drive.v)/30)*0.07; car.rotation.x=Math.max(-0.05,Math.min(0.05,vL*0.006));
     // drift : angle de glisse, effets, score
-    const speed=drive.vel.length(), angle=Math.atan2(Math.abs(vL),Math.abs(vF))*180/Math.PI, drifting=speed>7&&Math.abs(vL)>2.2&&paved;
+    const speed=drive.vel.length(), angle=Math.atan2(Math.abs(vL),Math.abs(vF))*180/Math.PI, drifting=speed>7&&Math.abs(vL)>2.2&&paved&&(hb||drive.rec<1);
     driftFX(dt,drifting);
     const D=drive.drift;
     if(drifting){ D.cur+=angle*speed*dt*0.6; D.timer=1.2; }
@@ -1249,6 +1258,21 @@ $("csvCopy").onclick=async()=>{
     const Dd=drive.drift;
     hudD.innerHTML=`<b>${Math.round(speed*3.6)}</b> km/h`+(drive.angle?` <span class="drift">DRIFT ${Math.round(drive.angle)}° · ${Math.round(Dd.cur)} pts</span>`:"")+`<br>Drift : dernier ${Dd.last} · record ${Dd.best} pts<br>`+` ${paved?"":"<span style='color:#ffb020'>hors piste · </span>"}Tour : ${drive.lap!=null?fmtT(performance.now()-drive.lap):"passe la ligne"} · Dernier : ${fmtT(drive.last)} · Record : ${fmtT(drive.best)}`;
   }
+  // mini-carte du circuit
+  const mm=document.getElementById("miniMap"), mx=mm.getContext("2d");
+  let minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9; TP.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z);});
+  minZ=Math.min(minZ,0); const sc=170/Math.max(maxX-minX,maxZ-minZ), ox=(200-(maxX-minX)*sc)/2, oz=(200-(maxZ-minZ)*sc)/2;
+  const toM=(x,z)=>[ox+(x-minX)*sc, 200-(oz+(z-minZ)*sc)];
+  function drawMini(){
+    mx.clearRect(0,0,200,200); mx.lineJoin="round";
+    mx.strokeStyle="#ddd"; mx.lineWidth=6; mx.beginPath(); TP.forEach((p,i)=>{const [a,b]=toM(p.x,p.z); i?mx.lineTo(a,b):mx.moveTo(a,b);}); mx.closePath(); mx.stroke();
+    mx.strokeStyle="#555"; mx.lineWidth=3.5; mx.stroke();
+    const [sx,sz]=toM(TP[0].x,TP[0].z); mx.fillStyle="#fff"; mx.fillRect(sx-1.5,sz-5,3,10);
+    const [bx,bz]=toM(0.5,0.9); mx.fillStyle="#7d8a97"; mx.fillRect(bx-3,bz-3,6,6);
+    const c=drive.on?drive.pos:fp.pos, [cx,cz]=toM(c.x,c.z);
+    mx.save(); mx.translate(cx,cz); mx.rotate(drive.on?drive.h+Math.PI/2:fp.yaw+Math.PI);
+    mx.fillStyle=drive.on?"#ff3d00":"#3ea6ff"; mx.beginPath(); mx.moveTo(0,-7); mx.lineTo(5,5); mx.lineTo(-5,5); mx.closePath(); mx.fill(); mx.restore();
+  }
   // ambiance intérieur / extérieur (ciel, brouillard, ombres qui suivent le joueur)
   const SKY=(()=>{const c=document.createElement("canvas");c.width=2;c.height=256;const x=c.getContext("2d");const g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,"#4f8fd0");g.addColorStop(0.6,"#a9cdee");g.addColorStop(1,"#e9f2fa");x.fillStyle=g;x.fillRect(0,0,2,256);return new THREE.CanvasTexture(c);})();
   [ground,park,lane].forEach(m=>m.material.envMapIntensity=0.15); trackMat.envMapIntensity=0.2; white.envMapIntensity=0.2; kerbM.envMapIntensity=0.2;
@@ -1261,6 +1285,7 @@ $("csvCopy").onclick=async()=>{
         Object.assign(sun.shadow.camera,{left:-14,right:14,top:14,bottom:-14,near:1,far:60}); sun.shadow.camera.updateProjectionMatrix(); }
       else { scene.background=savedBG||scene.background; if(window.workshopTheme) workshopTheme(light3D); scene.fog.near=6; scene.fog.far=14; hemi.intensity=light3D?0.5:0.3; sun.intensity=0.85;
         Object.assign(sun.shadow.camera,{left:-3.2,right:3.2,top:3,bottom:-2.6,near:0.5,far:10}); sun.shadow.camera.updateProjectionMatrix(); sun.target.position.set(0,0,0); sun.position.copy(SUN_OFF); } }
+    box.classList.toggle("outside",outside); if(outside) drawMini();
     if(outside){ const c=drive.on?drive.pos:fp.pos; sun.target.position.set(c.x,0,c.z); sun.position.set(c.x+SUN_OFF.x*8,SUN_OFF.y*8,c.z+SUN_OFF.z*8); }
   }
   // indications contextuelles
