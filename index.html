@@ -167,7 +167,7 @@ body.sup .sup-only{display:block}
     </div>
     <h2 style="margin:6px 8px 8px">🧊 Vue 3D <span class="mode">(clic sur l'extincteur = mousse · clic sur un tiroir = ouvrir/fermer · clic sur un outil = historique · double-clic = retirer/remettre · glisser = tourner)</span></h2>
     <div id="scene3d" tabindex="0" style="height:72vh;min-height:480px;border-radius:12px;overflow:hidden;touch-action:none;position:relative;outline:none">
-      <div id="fpHelp">⬆⬇⬅➡ / ZQSD : se déplacer · Maj : courir · Espace : sauter · I : arme · 1-5 : changer d'arme · clic droit : lunette (sniper) · U : vague d'ennemis · R : recharger · clic : agir / tirer · Échap : quitter</div>
+      <div id="fpHelp">⬆⬇⬅➡ / ZQSD : se déplacer · Maj : courir · Espace : sauter · I : arme · 1-5 : changer d'arme · clic droit : lunette on/off (sniper) · U : vague d'ennemis · R : recharger · clic : agir / tirer · Échap : quitter</div>
       <div id="cross"></div>
       <div id="inHand"></div>
       <div id="driveHud"></div>
@@ -1465,9 +1465,9 @@ $("csvCopy").onclick=async()=>{
   // => on peut tirer (clic gauche) tout en maintenant la lunette (clic droit)
   document.addEventListener("mousedown",e=>{
     if(!weaponOut()||combat.dead||!(locked()||(!fp.lockOK&&e.target===canvas))) return;
-    if(e.button===2){ if(weapon.cur==="sniper"&&weapon.reload===0) weapon.scoped=true; return; }
+    if(e.button===2){ if(weapon.cur==="sniper"&&weapon.reload===0) weapon.scoped=!weapon.scoped; return; }   // clic droit : entrer / sortir de la lunette
     if(e.button===0&&!fp.skipClick){ weapon.down=true; fire(); } });
-  document.addEventListener("mouseup",e=>{ if(e.button===2) weapon.scoped=false; if(e.button===0) weapon.down=false; });
+  document.addEventListener("mouseup",e=>{ if(e.button===0) weapon.down=false; });
   window.addEventListener("blur",()=>{ weapon.down=false; weapon.scoped=false; });
   canvas.addEventListener("contextmenu",e=>e.preventDefault());
   window.lookMul=()=>fp.on&&!drive.on?cam.fov/70:1;
