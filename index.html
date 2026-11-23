@@ -61,6 +61,12 @@ main{display:grid;grid-template-columns:1fr 360px;gap:18px;padding:18px}
 #combatHud .bar i{display:block;height:100%;background:linear-gradient(90deg,#ff3d3d,#2ecc71)}
 #hurt{position:absolute;inset:0;pointer-events:none;z-index:2;box-shadow:inset 0 0 160px 40px rgba(255,0,0,.75);opacity:0;transition:opacity .35s}
 #bigMsg{display:none;position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);color:#fff;font-size:30px;font-weight:900;padding:18px 28px;border-radius:16px;text-align:center;pointer-events:none;z-index:3}
+#scopeV{display:none;position:absolute;inset:0;pointer-events:none;z-index:1;background:radial-gradient(circle closest-side,transparent 0 90%,#000 91%)}
+#scopeV:before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(0,0,0,.85)}
+#scopeV:after{content:"";position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(0,0,0,.85)}
+#scopeV i{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#ff2a2a;box-shadow:0 0 6px #ff2a2a}
+#scene3d.scoped #scopeV{display:block}
+#scene3d.scoped #cross{display:none!important}
 #upgrades{display:none;position:absolute;inset:0;z-index:4;background:rgba(5,8,12,.72);flex-wrap:wrap;align-content:center;justify-content:center;gap:16px;padding:20px}
 #upgrades h3{width:100%;text-align:center;color:#fff;font-size:24px;margin:0 0 6px}
 #upgrades p{width:100%;text-align:center;color:#c9d3de;margin:4px 0 0}
@@ -161,7 +167,7 @@ body.sup .sup-only{display:block}
     </div>
     <h2 style="margin:6px 8px 8px">🧊 Vue 3D <span class="mode">(clic sur l'extincteur = mousse · clic sur un tiroir = ouvrir/fermer · clic sur un outil = historique · double-clic = retirer/remettre · glisser = tourner)</span></h2>
     <div id="scene3d" tabindex="0" style="height:72vh;min-height:480px;border-radius:12px;overflow:hidden;touch-action:none;position:relative;outline:none">
-      <div id="fpHelp">⬆⬇⬅➡ / ZQSD : se déplacer · Maj : courir · Espace : sauter · I : arme · 1-4 : changer d'arme · U : vague d'ennemis · R : recharger · clic : agir / tirer · Échap : quitter</div>
+      <div id="fpHelp">⬆⬇⬅➡ / ZQSD : se déplacer · Maj : courir · Espace : sauter · I : arme · 1-5 : changer d'arme · clic droit : lunette (sniper) · U : vague d'ennemis · R : recharger · clic : agir / tirer · Échap : quitter</div>
       <div id="cross"></div>
       <div id="inHand"></div>
       <div id="driveHud"></div>
@@ -170,6 +176,7 @@ body.sup .sup-only{display:block}
       <div id="hurt"></div>
       <div id="bigMsg"></div>
       <div id="upgrades"></div>
+      <div id="scopeV"><i></i></div>
       <div id="ctxHint"></div>
       <div id="fpPause">⏸ Clique dans la vue pour reprendre le contrôle à la souris<br><small>Échap : quitter la 1re personne</small></div>
     </div>
@@ -1038,7 +1045,7 @@ $("csvCopy").onclick=async()=>{
       arms.visible=true; cam.fov=70; cam.updateProjectionMatrix(); box.focus();
       fp.lockTried=true; lock();
     }else{
-      if(drive.on) exitCar(); fp.keys={}; arms.visible=false; if(locked()) document.exitPointerLock();
+      if(drive.on) exitCar(); fp.keys={}; arms.visible=false; box.classList.remove("scoped"); if(locked()) document.exitPointerLock();
       cam.fov=38; cam.updateProjectionMatrix(); cam.rotation.set(0,0,0);
       if(ctl){ ctl.enabled=true; ctl.target.set(fp.pos.x-Math.sin(fp.yaw),EYE-0.2,fp.pos.z-Math.cos(fp.yaw)); goalP=HOME_P.clone(); goalT=HOME_T.clone(); }
     }
@@ -1060,7 +1067,7 @@ $("csvCopy").onclick=async()=>{
   // regard : la vue suit la souris (pointeur capturé), sinon simple survol si la capture est refusée
   const look=(dx,dy,sens)=>{ fp.yaw-=dx*sens; fp.pitch=Math.max(-1.35,Math.min(1.2,fp.pitch-dy*sens)); };
   document.addEventListener("mousemove",e=>{ if(!fp.on) return;
-    if(locked()) look(e.movementX,e.movementY,0.0025);
+    if(locked()) look(e.movementX,e.movementY,0.0025*(window.lookMul?lookMul():1));
     else if(!fp.lockOK && box.contains(e.target)) look(e.movementX,e.movementY,0.004); });
   canvas.addEventListener("wheel",e=>{ if(!fp.on) return; e.preventDefault(); look(e.deltaX,e.deltaY,0.003); },{passive:false});
 
@@ -1328,10 +1335,11 @@ $("csvCopy").onclick=async()=>{
     pistol: {name:"Pistolet",       mag:12, cd:0.16, rel:1.2, dmg:1, pel:1, spr:0,     auto:false},
     rifle:  {name:"Fusil d'assaut", mag:30, cd:0.09, rel:1.8, dmg:1, pel:1, spr:0.012, auto:true },
     shotgun:{name:"Fusil à pompe",  mag:6,  cd:0.75, rel:2.2, dmg:1, pel:7, spr:0.07,  auto:false},
-    sniper: {name:"Sniper",         mag:5,  cd:1.0,  rel:2.4, dmg:3, pel:1, spr:0,     auto:false}};
-  const ORDER=["pistol","rifle","shotgun","sniper"];
+    sniper: {name:"Sniper",         mag:5,  cd:1.0,  rel:2.4, dmg:3, pel:1, spr:0.03,  auto:false},
+    smg:    {name:"Mitraillette",   mag:40, cd:0.06, rel:1.6, dmg:1, pel:1, spr:0.03,  auto:true }};
+  const ORDER=["pistol","sniper","rifle","shotgun","smg"];
   const up={mag:1,rel:1,cd:1,dmg:0,speed:1,regen:0};          // bonus cumulés
-  const weapon={on:false,cur:"pistol",owned:{pistol:true},ammo:{pistol:12},reload:0,recoil:0,cd:0,down:false};
+  const weapon={on:false,cur:"pistol",owned:{pistol:true,sniper:true},ammo:{pistol:12,sniper:5},reload:0,recoil:0,cd:0,down:false,scoped:false,scope:0};
   const CW=()=>WDEF[weapon.cur], magOf=k=>Math.round(WDEF[k].mag*up.mag);
   // modèles 3D des armes, dans la main droite
   const guns={}, hand=arms.userData[1];
@@ -1346,6 +1354,8 @@ $("csvCopy").onclick=async()=>{
       B3(0.03,0.09,0.045,gr,0,-0.035,0.02,0.3); B3(0.04,0.06,0.16,gm,0,0.02,0.12); B3(0.02,0.03,0.1,gm2,0,0.075,-0.1); tip=-0.5; }
     if(kind==="shotgun"){ C3(0.017,0.55,gm2,0,0.045,-0.25); C3(0.014,0.5,gm,0,0.015,-0.22); B3(0.045,0.05,0.12,wood,0,0.015,-0.2);
       B3(0.04,0.06,0.18,gm,0,0.03,0.0); B3(0.04,0.08,0.18,wood,0,0.0,0.15,-0.15); tip=-0.53; }
+    if(kind==="smg"){ B3(0.04,0.06,0.26,gm,0,0.03,-0.08); C3(0.01,0.08,gm2,0,0.04,-0.25); B3(0.03,0.15,0.035,gm2,0,-0.07,-0.1);
+      B3(0.03,0.09,0.045,gr,0,-0.035,0.03,0.3); B3(0.012,0.012,0.14,gm2,0,0.02,0.12); B3(0.012,0.05,0.012,gm2,0,0.0,0.19); B3(0.008,0.014,0.008,orange,0,0.068,-0.18); tip=-0.3; }
     if(kind==="sniper"){ C3(0.01,0.6,gm2,0,0.04,-0.34); B3(0.045,0.06,0.3,gm,0,0.025,-0.05); C3(0.022,0.2,SM(0x111111,0.6,0.3),0,0.1,-0.06);
       B3(0.01,0.04,0.01,gm,0,0.07,-0.02); B3(0.04,0.09,0.2,wood,0,0.0,0.17,-0.1); B3(0.03,0.09,0.045,gr,0,-0.04,0.02,0.3); tip=-0.65; }
     const fl=new THREE.Mesh(new THREE.SphereGeometry(0.035,10,8),new THREE.MeshBasicMaterial({color:0xffd27a})); fl.position.set(0,0.04,tip); fl.visible=false; g.add(fl);
@@ -1409,9 +1419,9 @@ $("csvCopy").onclick=async()=>{
     {id:"hp",    t:"❤ Blindage",               d:"+25 santé max et soin complet",    ok:()=>combat.maxHp<200, go:()=>{combat.maxHp+=25; combat.hp=combat.maxHp;}},
     {id:"regen", t:"💚 Régénération",           d:"+2 santé par seconde",             ok:()=>up.regen<6, go:()=>{up.regen+=2;}},
     {id:"speed", t:"👟 Bottes légères",         d:"Course 15 % plus rapide",          ok:()=>up.speed<1.6, go:()=>{up.speed*=1.15;}},
-    {id:"rifle", t:"🆕 Fusil d'assaut",         d:"Tir automatique, 30 balles (touche 2)", ok:()=>!weapon.owned.rifle,   go:()=>giveWeapon("rifle")},
-    {id:"shotgun",t:"🆕 Fusil à pompe",         d:"7 plombs par tir, dévastateur de près (touche 3)", ok:()=>!weapon.owned.shotgun, go:()=>giveWeapon("shotgun")},
-    {id:"sniper",t:"🆕 Sniper",                 d:"Détruit un robot en une balle (touche 4)", ok:()=>!weapon.owned.sniper, go:()=>giveWeapon("sniper")}];
+    {id:"rifle", t:"🆕 Fusil d'assaut",         d:"Tir automatique, 30 balles (touche 3)", ok:()=>!weapon.owned.rifle,   go:()=>giveWeapon("rifle")},
+    {id:"shotgun",t:"🆕 Fusil à pompe",         d:"7 plombs par tir, dévastateur de près (touche 4)", ok:()=>!weapon.owned.shotgun, go:()=>giveWeapon("shotgun")},
+    {id:"smg",   t:"🆕 Mitraillette",           d:"Très haute cadence, 40 balles (touche 5)", ok:()=>!weapon.owned.smg, go:()=>giveWeapon("smg")}];
   function giveWeapon(k){ weapon.owned[k]=true; weapon.ammo[k]=magOf(k); weapon.cur=k; weapon.on=true; showGun(); }
   function offerUpgrades(){
     const pool=UPS.filter(u=>u.ok()), news=pool.filter(u=>WDEF[u.id]), others=pool.filter(u=>!WDEF[u.id]);
@@ -1433,7 +1443,8 @@ $("csvCopy").onclick=async()=>{
     const fl=guns[weapon.cur].userData.flash; fl.visible=true; flashL.intensity=2.5; setTimeout(()=>{fl.visible=false;flashL.intensity=0;},55);
     const from=fl.getWorldPosition(new THREE.Vector3()), alive=enemies.filter(e=>e.alive).map(e=>e.g), rc=new THREE.Raycaster(); rc.far=150;
     for(let k=0;k<w.pel;k++){
-      rc.setFromCamera(new THREE.Vector2((Math.random()-0.5)*2*w.spr,(Math.random()-0.5)*2*w.spr),cam);
+      const spr=(weapon.cur==="sniper"&&weapon.scope>0.8)?0:w.spr;
+      rc.setFromCamera(new THREE.Vector2((Math.random()-0.5)*2*spr,(Math.random()-0.5)*2*spr),cam);
       const hit=rc.intersectObjects(alive,true)[0], to=hit?hit.point:rc.ray.at(90,new THREE.Vector3());
       const T=tracers[trI]; trI=(trI+1)%tracers.length; T.g.setFromPoints([from,to]); T.l.visible=true; T.t=0.06;
       if(hit){ let o=hit.object; const part=o.userData.part; while(o&&!enemies.find(e=>e.g===o)) o=o.parent; const e=enemies.find(x=>x.g===o);
@@ -1441,17 +1452,24 @@ $("csvCopy").onclick=async()=>{
     }
     if(weapon.ammo[weapon.cur]===0) startReload();
   }
-  function startReload(){ if(weapon.reload>0||weapon.ammo[weapon.cur]===magOf(weapon.cur)) return; weapon.reload=CW().rel*up.rel; weapon.relMax=weapon.reload; }
+  function startReload(){ if(weapon.reload>0||weapon.ammo[weapon.cur]===magOf(weapon.cur)) return; weapon.scoped=false; weapon.reload=CW().rel*up.rel; weapon.relMax=weapon.reload; }
   window.combatKey=k=>{
     if(!fp.on) return false;
     if(combat.choosing&&"123".includes(k)){ choose(+k-1); return true; }
-    if("1234".includes(k)&&k.length===1){ const w=ORDER[+k-1]; if(weapon.owned[w]){ weapon.cur=w; weapon.on=true; weapon.reload=0; showGun(); } return true; }
+    if("12345".includes(k)&&k.length===1){ const w=ORDER[+k-1]; if(weapon.owned[w]){ weapon.cur=w; weapon.on=true; weapon.reload=0; weapon.scoped=false; showGun(); } return true; }
     if(k==="i"){ weapon.on=!weapon.on; showGun(); return true; }
     if(k==="u"){ if(combat.dead) respawn(); spawnWave(); return true; }
     if(k==="r"&&weapon.on){ startReload(); return true; }
     return false; };
-  canvas.addEventListener("pointerdown",e=>{ if(weaponOut()&&e.button===0&&(locked()||!fp.lockOK)&&!fp.skipClick&&!combat.dead){ weapon.down=true; fire(); } });
-  window.addEventListener("pointerup",()=>{ weapon.down=false; });
+  canvas.addEventListener("pointerdown",e=>{ if(!weaponOut()||combat.dead) return;
+    if(e.button===2){ if(weapon.cur==="sniper"&&weapon.reload===0) weapon.scoped=true; return; }      // clic droit : lunette
+    if(e.button===0&&(locked()||!fp.lockOK)&&!fp.skipClick){ weapon.down=true; fire(); } });
+  // avec la souris capturée, le 2e bouton arrive aussi via mousedown/mouseup
+  document.addEventListener("mousedown",e=>{ if(e.button===2&&weaponOut()&&weapon.cur==="sniper"&&weapon.reload===0&&locked()) weapon.scoped=true; });
+  window.addEventListener("pointerup",e=>{ if(e.button===2) weapon.scoped=false; else weapon.down=false; });
+  document.addEventListener("mouseup",e=>{ if(e.button===2) weapon.scoped=false; });
+  canvas.addEventListener("contextmenu",e=>e.preventDefault());
+  window.lookMul=()=>fp.on&&!drive.on?cam.fov/70:1;
   function respawn(){ combat.hp=combat.maxHp; combat.dead=false; big.style.display="none"; if(drive.on) exitCar(); fp.pos.set(1.65,0,-0.35); fp.yaw=Math.PI/2; fp.y=0; fp.vy=0;
     enemies.forEach(e=>scene.remove(e.g)); enemies.length=0; }
   function damage(n){ if(combat.dead) return; combat.hp=Math.max(0,combat.hp-n); hurt.style.opacity=1; setTimeout(()=>hurt.style.opacity=0,180);
@@ -1466,6 +1484,11 @@ $("csvCopy").onclick=async()=>{
     if(weapon.reload>0){ weapon.reload-=dt; g.rotation.x=-0.6*Math.sin(Math.min(1,1-weapon.reload/weapon.relMax)*Math.PI);
       if(weapon.reload<=0){ weapon.reload=0; weapon.ammo[weapon.cur]=magOf(weapon.cur); } }
     if(weapon.down&&CW().auto&&weaponOut()) fire();
+    // lunette du sniper (zoom)
+    if(!weaponOut()||weapon.cur!=="sniper"||weapon.reload>0) weapon.scoped=false;
+    weapon.scope+=((weapon.scoped?1:0)-weapon.scope)*Math.min(1,dt*12);
+    if(fp.on&&!drive.on){ const fov=70-52*weapon.scope; if(Math.abs(cam.fov-fov)>0.01){ cam.fov=fov; cam.updateProjectionMatrix(); } arms.visible=weapon.scope<0.6; }
+    box.classList.toggle("scoped",weapon.scope>0.6);
     if(up.regen&&!combat.dead) combat.hp=Math.min(combat.maxHp,combat.hp+up.regen*dt);
     tracers.forEach(T=>{ if(T.t>0){ T.t-=dt; if(T.t<=0) T.l.visible=false; } });
     for(let i=0;i<NSP;i++){ if(spL[i]<=0) continue; spL[i]-=dt; if(spL[i]<=0){spP[i*3+1]=-99;continue;} spV[i*3+1]-=9*dt;
