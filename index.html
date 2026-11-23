@@ -42,6 +42,15 @@ main{display:grid;grid-template-columns:1fr 360px;gap:18px;padding:18px}
 .tool.a{outline:2px solid rgba(255,90,90,.35)}
 .tool small{margin-left:auto;color:var(--mut);font-size:13px}
 .tool.sel{outline:3px solid #ffd43b}
+.b3{float:right;min-height:40px;padding:8px 14px;margin:2px 4px}
+.b3.on{background:var(--acc);color:#fff}
+#fpHelp{display:none;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;padding:8px 14px;border-radius:10px;font-size:14px;pointer-events:none;z-index:2;white-space:nowrap}
+#scene3d.fp #fpHelp{display:block}
+#scene3d canvas{display:block}
+#panel3d:fullscreen{border-radius:0;padding:10px;background:var(--card)}
+#panel3d:fullscreen #scene3d{height:calc(100vh - 70px)!important}
+#panel3d.fs{position:fixed;inset:0;z-index:50;border-radius:0;margin:0!important}
+#panel3d.fs #scene3d{height:calc(100vh - 70px)!important}
 .hist table{width:100%;border-collapse:collapse;font-size:15px}
 .hist td,.hist th{padding:7px 6px;border-bottom:1px solid #2f3946;text-align:left}
 .hist th{color:var(--mut);font-weight:600}
@@ -105,10 +114,14 @@ body.sup .sup-only{display:block}
     <div id="sugg"></div>
     <div id="searchMsg"></div>
   </div>
-  <div class="panel" style="margin-bottom:16px;padding:10px">
-    <button class="sec" id="btnTheme" style="float:right;min-height:40px;padding:8px 14px;margin:2px 4px">☀ Vue claire</button>
+  <div class="panel" id="panel3d" style="margin-bottom:16px;padding:10px">
+    <button class="sec b3" id="btnFS">⛶ Plein écran</button>
+    <button class="sec b3" id="btnFP">🚶 1re personne</button>
+    <button class="sec b3" id="btnTheme">☀ Vue claire</button>
     <h2 style="margin:6px 8px 8px">🧊 Vue 3D <span class="mode">(clic sur l'extincteur = mousse · clic sur un tiroir = ouvrir/fermer · clic sur un outil = historique · double-clic = retirer/remettre · glisser = tourner)</span></h2>
-    <div id="scene3d" style="height:72vh;min-height:480px;border-radius:12px;overflow:hidden;touch-action:none"></div>
+    <div id="scene3d" tabindex="0" style="height:72vh;min-height:480px;border-radius:12px;overflow:hidden;touch-action:none;position:relative;outline:none">
+      <div id="fpHelp">⬆⬇⬅➡ / ZQSD : se déplacer · Maj : courir · glisser ou pad (2 doigts) : regarder · clic : agir · Échap : quitter</div>
+    </div>
   </div>
   <section class="drawers" id="drawers"></section>
   </div>
@@ -537,6 +550,19 @@ $("csvCopy").onclick=async()=>{
     const wallT2=wallT.clone(); wallT2.needsUpdate=true; wallT2.repeat.set(3.5,1);
     const left=new THREE.Mesh(new THREE.PlaneGeometry(7,3.2),new THREE.MeshStandardMaterial({map:wallT2,roughness:0.9}));
     left.position.set(-3,1.6,0.9); left.rotation.y=Math.PI/2; left.receiveShadow=true; scene.add(left);
+    // murs droit et avant + plafond (visibles seulement de l'intérieur, pour la vue 1re personne)
+    const rollT=cv(256,256,(x,w,h)=>{x.fillStyle="#8c959e";x.fillRect(0,0,w,h);for(let i=0;i<h;i+=14){x.fillStyle="#6f7881";x.fillRect(0,i,w,3);}
+      x.fillStyle="#f5c400";for(let i=0;i<w;i+=40){x.fillRect(i,h-16,20,16);}});
+    const right=new THREE.Mesh(new THREE.PlaneGeometry(7,3.2),new THREE.MeshStandardMaterial({map:wallT.clone(),roughness:0.9}));
+    right.material.map.needsUpdate=true; right.material.map.repeat.set(3.5,1); right.position.set(3.95,1.6,0.9); right.rotation.y=-Math.PI/2; right.receiveShadow=true; scene.add(right);
+    const roll=new THREE.Mesh(new THREE.PlaneGeometry(2.4,2.5),new THREE.MeshStandardMaterial({map:rollT,metalness:0.4,roughness:0.5})); roll.position.set(3.94,1.25,1.6); roll.rotation.y=-Math.PI/2; scene.add(roll);
+    const front=new THREE.Mesh(new THREE.PlaneGeometry(7,3.2),new THREE.MeshStandardMaterial({map:wallT.clone(),roughness:0.9}));
+    front.material.map.needsUpdate=true; front.material.map.repeat.set(3.5,1); front.position.set(0.5,1.6,4.35); front.rotation.y=Math.PI; front.receiveShadow=true; scene.add(front);
+    const door=new THREE.Mesh(new THREE.PlaneGeometry(1.0,2.1),new THREE.MeshStandardMaterial({color:0x3b4a5a,metalness:0.3,roughness:0.5})); door.position.set(-1.2,1.05,4.34); door.rotation.y=Math.PI; scene.add(door);
+    const exitS=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.18),new THREE.MeshBasicMaterial({map:cv(256,92,(x,w,h)=>{x.fillStyle="#0a8a3a";x.fillRect(0,0,w,h);x.fillStyle="#fff";x.font="bold 46px system-ui";x.textAlign="center";x.fillText("🏃 SORTIE",w/2,h/2+16);})}));
+    exitS.position.set(-1.2,2.35,4.33); exitS.rotation.y=Math.PI; scene.add(exitS);
+    const ceil=new THREE.Mesh(new THREE.PlaneGeometry(7,7),new THREE.MeshStandardMaterial({color:0x9aa0a6,roughness:0.95})); ceil.rotation.x=Math.PI/2; ceil.position.set(0.5,3.2,0.9); scene.add(ceil);
+    for(let k=-2;k<=3;k++){ const bm=new THREE.Mesh(B(0.12,0.18,7),S(0x5b636b,0.5,0.5)); bm.position.set(0.5+k*1.2,3.1,0.9); scene.add(bm); }
     // plinthe
     Bx(7,0.1,0.03,S(0x2b3a36),0.5,0.05,-2.585); const pl=Bx(7,0.1,0.03,S(0x2b3a36),-2.985,0.05,0.9); pl.rotation.y=Math.PI/2;
     // ---- Panneau perforé avec silhouettes d'outils (au-dessus de l'établi)
@@ -672,7 +698,7 @@ $("csvCopy").onclick=async()=>{
       const pl=new THREE.PointLight(0xffe2b0,0.35,5,2); pl.position.set(x,2.4,z); scene.add(pl); lamps.push(pl);});
     // ambiance : brouillard léger pour la profondeur
     scene.fog=new THREE.Fog(0x0b0e12,5,11);
-    window.workshopTheme=l=>{ wallM.color.setHex(l?0xffffff:0xb9b9b9); left.material.color.setHex(l?0xffffff:0xb9b9b9);
+    window.workshopTheme=l=>{ [wallM,left.material,right.material,front.material].forEach(m=>m.color.setHex(l?0xffffff:0xb9b9b9));
       scene.fog.color.setHex(l?0xe8edf2:0x0b0e12); lamps.forEach(p=>p.intensity=l?0.2:0.45); };
     workshopTheme(false);
   })();
@@ -825,6 +851,7 @@ $("csvCopy").onclick=async()=>{
   const HOME_P=new THREE.Vector3(1.9,2.0,2.9), HOME_T=new THREE.Vector3(0,0.75,-0.6);
   let goalP=null, goalT=null;
   window.focusDrawer=function(i){
+    if(fp.on) return;
     if(i===null){goalP=HOME_P.clone();goalT=HOME_T.clone();return;}
     const y=drawers[i].g.position.y, z=D*0.88+0.02;
     goalP=new THREE.Vector3(0,y+1.25,z+0.22); goalT=new THREE.Vector3(0,y,z);
@@ -833,6 +860,90 @@ $("csvCopy").onclick=async()=>{
   // Reflets d'environnement dosés sur tous les matériaux
   const envI=m=>{if(m&&"envMapIntensity" in m)m.envMapIntensity=m.metalness>0.5?0.7:0.35;};
   scene.traverse(o=>{if(o.material)envI(o.material);}); [mFoam,mAbs,ST,BK,RD,YL,BL,WD,GR].forEach(envI);
+  /* ===== PERSONNAGE (opérateur de maintenance) ===== */
+  const person=new THREE.Group(); scene.add(person);
+  (function(){
+    const P=(c,me,ro)=>new THREE.MeshStandardMaterial({color:c,metalness:me||0,roughness:ro==null?0.7:ro});
+    const navy=P(0x1f2f4f), blueW=P(0x2d4f8a), vest=P(0xd7ff3a,0,0.6), refl=P(0xdfe6ee,0.9,0.25), skin=P(0xe0b48f,0,0.6), boot=P(0x2a1d14,0,0.8), helm=P(0xf5f5f0,0.1,0.35);
+    const add=(geo,m,x,y,z,par)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);o.castShadow=true;(par||person).add(o);return o;};
+    [-0.09,0.09].forEach(x=>{add(B(0.13,0.8,0.15),navy,x,0.48,0); add(B(0.14,0.09,0.26),boot,x,0.045,0.04);});
+    add(B(0.38,0.12,0.2),navy,0,0.92,0);                        // bassin
+    add(B(0.4,0.52,0.22),blueW,0,1.22,0);                        // torse
+    add(B(0.42,0.4,0.235),vest,0,1.25,0);                        // gilet haute visibilité
+    add(B(0.425,0.035,0.24),refl,0,1.14,0); add(B(0.425,0.035,0.24),refl,0,1.3,0);
+    [-1,1].forEach(sd=>{const arm=new THREE.Group(); arm.position.set(sd*0.25,1.44,0); person.add(arm); arm.rotation.z=sd*0.08;
+      add(B(0.11,0.56,0.12),blueW,0,-0.28,0,arm); add(new THREE.SphereGeometry(0.055,12,10),skin,0,-0.6,0,arm); person.userData["arm"+sd]=arm;});
+    add(B(0.12,0.08,0.12),skin,0,1.52,0);                        // cou
+    add(new THREE.SphereGeometry(0.12,20,16),skin,0,1.66,0);     // tête
+    const h=add(new THREE.SphereGeometry(0.135,20,12,0,Math.PI*2,0,Math.PI/2),helm,0,1.7,0);
+    add(new THREE.CylinderGeometry(0.16,0.16,0.012,24),helm,0,1.7,0.02);
+    add(B(0.2,0.035,0.02),P(0x111111,0.3,0.2),0,1.68,0.115);     // lunettes de sécurité
+  })();
+  person.position.set(1.65,0,-0.35); person.rotation.y=-Math.PI/2;
+
+  /* ===== VUE À LA 1re PERSONNE ===== */
+  const fp={on:false,yaw:0,pitch:-0.15,pos:new THREE.Vector3(),keys:{},bob:0,saved:null};
+  const EYE=1.62, RAD=0.25;
+  // obstacles (x1,z1,x2,z2) : servante, établi, perceuse, tour, étagère, fût
+  const OBST=[[-0.5,-0.3,0.5,0.3],[-2.1,-2.6,0.4,-1.8],[1.2,-2.45,1.7,-1.85],[-2.95,-0.8,-2.15,1.0],[2.45,-2.1,3.1,-0.5],[2.1,0.6,2.7,1.2]];
+  const BOUNDS=[-2.75,-2.35,3.6,4.05];
+  function collide(p){
+    p.x=Math.max(BOUNDS[0],Math.min(BOUNDS[2],p.x)); p.z=Math.max(BOUNDS[1],Math.min(BOUNDS[3],p.z));
+    OBST.forEach(([x1,z1,x2,z2])=>{
+      if(p.x>x1-RAD&&p.x<x2+RAD&&p.z>z1-RAD&&p.z<z2+RAD){
+        const dl=p.x-(x1-RAD), dr=(x2+RAD)-p.x, dn=p.z-(z1-RAD), df=(z2+RAD)-p.z, m=Math.min(dl,dr,dn,df);
+        if(m===dl)p.x=x1-RAD; else if(m===dr)p.x=x2+RAD; else if(m===dn)p.z=z1-RAD; else p.z=z2+RAD; } });
+  }
+  function fpTick(dt){
+    const k=fp.keys, run=k.Shift?2.2:1.2;
+    const f=(k.ArrowUp||k.z||k.w?1:0)-(k.ArrowDown||k.s?1:0), st=(k.ArrowRight||k.d?1:0)-(k.ArrowLeft||k.q||k.a?1:0);
+    if(f||st){ const sy=Math.sin(fp.yaw), cy=Math.cos(fp.yaw), n=Math.hypot(f,st);
+      fp.pos.x+=(-sy*f+cy*st)/n*run*dt; fp.pos.z+=(-cy*f-sy*st)/n*run*dt; collide(fp.pos); fp.bob+=dt*run*7; }
+    cam.position.set(fp.pos.x, EYE+Math.sin(fp.bob)*0.025, fp.pos.z);
+    cam.rotation.set(fp.pitch,fp.yaw,0,"YXZ");
+  }
+  function setFP(on){
+    if(on===fp.on) return; fp.on=on; const el=document.getElementById("btnFP");
+    el.classList.toggle("on",on); el.textContent=on?"🎥 Vue libre":"🚶 1re personne"; box.classList.toggle("fp",on);
+    if(on){
+      goalP=null; if(ctl) ctl.enabled=false;
+      fp.pos.set(person.position.x,0,person.position.z); fp.yaw=person.rotation.y+Math.PI; fp.pitch=-0.15; collide(fp.pos);
+      person.visible=false; cam.fov=70; cam.updateProjectionMatrix(); box.focus();
+    }else{
+      fp.keys={}; person.visible=true; person.position.set(fp.pos.x,0,fp.pos.z); person.rotation.y=fp.yaw+Math.PI;
+      cam.fov=38; cam.updateProjectionMatrix(); cam.rotation.set(0,0,0);
+      if(ctl){ ctl.enabled=true; cam.position.set(fp.pos.x,EYE,fp.pos.z); ctl.target.set(fp.pos.x-Math.sin(fp.yaw),EYE-0.2,fp.pos.z-Math.cos(fp.yaw)); goalP=HOME_P.clone(); goalT=HOME_T.clone(); }
+    }
+  }
+  document.getElementById("btnFP").onclick=()=>setFP(!fp.on);
+  // clavier
+  const KEYS=["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","z","q","s","d","w","a","Shift"];
+  window.addEventListener("keydown",e=>{ if(!fp.on||e.target.tagName==="INPUT") return;
+    if(e.key==="Escape"){ setFP(false); return; }
+    const key=e.key.length===1?e.key.toLowerCase():e.key; if(KEYS.includes(key)){ fp.keys[key]=true; e.preventDefault(); } });
+  window.addEventListener("keyup",e=>{ const key=e.key.length===1?e.key.toLowerCase():e.key; fp.keys[key]=false; });
+  window.addEventListener("blur",()=>{fp.keys={};});
+  // regard : glisser (souris / doigt) ou pad à deux doigts
+  let last=null;
+  ren.domElement.addEventListener("pointerdown",e=>{ if(fp.on){ last=[e.clientX,e.clientY]; box.focus(); } });
+  window.addEventListener("pointermove",e=>{ if(!fp.on||!last||!e.buttons) return;
+    fp.yaw-=(e.clientX-last[0])*0.005; fp.pitch=Math.max(-1.35,Math.min(1.2,fp.pitch-(e.clientY-last[1])*0.005)); last=[e.clientX,e.clientY]; });
+  window.addEventListener("pointerup",()=>{last=null;});
+  ren.domElement.addEventListener("wheel",e=>{ if(!fp.on) return; e.preventDefault();
+    fp.yaw-=e.deltaX*0.003; fp.pitch=Math.max(-1.35,Math.min(1.2,fp.pitch-e.deltaY*0.003)); },{passive:false});
+
+  /* ===== PLEIN ÉCRAN ===== */
+  const panel=document.getElementById("panel3d"), bFS=document.getElementById("btnFS");
+  const isFS=()=>document.fullscreenElement===panel||panel.classList.contains("fs");
+  function fsLabel(){ bFS.textContent=isFS()?"✕ Quitter plein écran":"⛶ Plein écran"; setTimeout(size,60); }
+  bFS.onclick=async()=>{
+    if(isFS()){ if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); panel.classList.remove("fs"); fsLabel(); return; }
+    try{ if(!panel.requestFullscreen) throw 0; await panel.requestFullscreen(); }
+    catch(e){ panel.classList.add("fs"); }   // repli : plein écran dans la page
+    fsLabel();
+  };
+  document.addEventListener("fullscreenchange",fsLabel);
+  window.addEventListener("keydown",e=>{ if(e.key==="Escape"&&panel.classList.contains("fs")&&!fp.on){ panel.classList.remove("fs"); fsLabel(); } });
   function size(){const w=box.clientWidth,h=box.clientHeight;ren.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();}
   new ResizeObserver(size).observe(box); size();
   (function loop(){
@@ -842,6 +953,7 @@ $("csvCopy").onclick=async()=>{
     drawers.forEach(o=>{o.g.position.z+=(o.z-o.g.position.z)*0.12;});
     const t=performance.now()/1000, al=Object.values(alerts).some(a=>!a.acked&&a.active);
     drawers.forEach(o=>{if(o.strip.material.color.getHex()===C.alert)o.strip.material.emissiveIntensity=0.4+0.5*Math.abs(Math.sin(t*4));else o.strip.material.emissiveIntensity=0.6;});
+    if(fp.on){ fpTick(dt); ren.render(scene,cam); return; }
     if(goalP&&ctl){cam.position.lerp(goalP,0.08);ctl.target.lerp(goalT,0.08);
       if(cam.position.distanceTo(goalP)<0.003&&ctl.target.distanceTo(goalT)<0.003)goalP=null;}
     if(ctl)ctl.update(); ren.render(scene,cam);
