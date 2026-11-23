@@ -1461,13 +1461,14 @@ $("csvCopy").onclick=async()=>{
     if(k==="u"){ if(combat.dead) respawn(); spawnWave(); return true; }
     if(k==="r"&&weapon.on){ startReload(); return true; }
     return false; };
-  canvas.addEventListener("pointerdown",e=>{ if(!weaponOut()||combat.dead) return;
-    if(e.button===2){ if(weapon.cur==="sniper"&&weapon.reload===0) weapon.scoped=true; return; }      // clic droit : lunette
-    if(e.button===0&&(locked()||!fp.lockOK)&&!fp.skipClick){ weapon.down=true; fire(); } });
-  // avec la souris capturée, le 2e bouton arrive aussi via mousedown/mouseup
-  document.addEventListener("mousedown",e=>{ if(e.button===2&&weaponOut()&&weapon.cur==="sniper"&&weapon.reload===0&&locked()) weapon.scoped=true; });
-  window.addEventListener("pointerup",e=>{ if(e.button===2) weapon.scoped=false; else weapon.down=false; });
-  document.addEventListener("mouseup",e=>{ if(e.button===2) weapon.scoped=false; });
+  // mousedown/mouseup (et non pointerdown) : ils arrivent pour chaque bouton, même quand un autre est déjà enfoncé
+  // => on peut tirer (clic gauche) tout en maintenant la lunette (clic droit)
+  document.addEventListener("mousedown",e=>{
+    if(!weaponOut()||combat.dead||!(locked()||(!fp.lockOK&&e.target===canvas))) return;
+    if(e.button===2){ if(weapon.cur==="sniper"&&weapon.reload===0) weapon.scoped=true; return; }
+    if(e.button===0&&!fp.skipClick){ weapon.down=true; fire(); } });
+  document.addEventListener("mouseup",e=>{ if(e.button===2) weapon.scoped=false; if(e.button===0) weapon.down=false; });
+  window.addEventListener("blur",()=>{ weapon.down=false; weapon.scoped=false; });
   canvas.addEventListener("contextmenu",e=>e.preventDefault());
   window.lookMul=()=>fp.on&&!drive.on?cam.fov/70:1;
   function respawn(){ combat.hp=combat.maxHp; combat.dead=false; big.style.display="none"; if(drive.on) exitCar(); fp.pos.set(1.65,0,-0.35); fp.yaw=Math.PI/2; fp.y=0; fp.vy=0;
